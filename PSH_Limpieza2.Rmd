@@ -1,0 +1,211 @@
+---
+title: "Preparacion y Manipulacion de Datos"
+author: "Patricia Sánchez Holgado"
+date: "10 de Abril de 2018"
+output:
+  word_document: default
+  html_document: default
+---
+## Enunciado del ejercicio: 
+En esta Actividad deberás codificar y comentar las acciones necesarias a realizar sobre un “messy dataset” para convertirlo en un “tidy dataset”, limpio en contenido, y con un formato adecuado, que lo haga susceptible de ser utilizado en un proceso de Análisis de datos.Se deberán explicar las acciones con texto, y codificarlas en R, en un script R Markdown (http://rmarkdown.rstudio.com/) en el que se incluirá el código R y las explicaciones convenientes, y, opcionalmente, si ayudan a entender las acciones, gráficos.
+Aunque quien quiera, puede utilizar un dataset de su elección, se propone este “messy dataset”: https://docs.google.com/spreadsheets/d/1CDWBeqpUTBd1TkmDz_M6UGRWdHgU7LOcoiGRTvIttKA/edit#gid=0 [1], en el que a primera vista ya detectamos "potenciales problemas”, por los cuales el dataset debe ser transformado y limpiado, antes de ser utilizado en un Análisis.
+
+[1] Fuente: https://onlinejournalismblog.com/2013/02/21/a-sample-dirty-dataset-for-trying-out-google-refine/
+
+---
+#INDICE
+*1. Objetivo
+*2. Lectura del dataset, preparación y carga de datos.
+*3. Acciones de Limpieza de datos.
+*4. Guardar el fichero resultado.
+*5. Conclusiones
+
+
+# 1. Objetivo
+El objetivo de este ejercicio será limpiar un dataset para poder convertirlo a un formato y características adecuadas para un posterior análisis de datos y/o futuro diseño de modelos.
+La idea de los datos ordenados es que queden organizados del siguiente modo (Wickham, 2014):
+* Cada variable está en una columna
+* Cada observación está en una fila
+* Cada tipo de unidad observacional forma una tabla.
+
+# 2. Lectura del dataset, preparación y Carga de los datos y el entorno de trabajo.
+
+###Limpiar los archivos que ya tenemos almacenados.
+```{r}
+rm(list=ls())
+ls()
+```
+### Directorio de trabajo y carga de datos
+```{r}
+getwd()  #ver directorio de trabajo actual
+
+#install.packages("readxl")  #instalar en caso de no disponer de la librería
+library(readxl)   # Leer ficheros excel
+datos <- read_excel("datos.xlsx")
+View(datos)
+
+```
+Tenemos 5279 observaciones de 5 variables en el dataset.
+
+### Cargamos librerías
+```{r}
+# Instalar los paquetes en caso de que alguna librería no la tengamos disponible:
+#install.packages("dplyr")
+#install.packages("tidyr")
+#install.packages("readr")
+#install.packages("lattice")
+
+# Librerías
+library(dplyr)    # Manipulación de data.frames
+library(tidyr)    # Datos ordenados
+library(readr)    # Leer ficheros excel
+library(lattice)  # Gráficos
+```
+
+# 3. Acciones de limpieza sobre el dataset: 
+
+Vamos a seleccionar las columnas que nos interesan. 
+Elimino la columna Street1 porque considero que no es útil para este ejercicio por tener datos repetidos en Street2 y con caracteres extraños. Elimino también la columna HTML que desconozco su función para ser más prácticos.
+
+Llamamos a este fichero de datos EJERCICIO y comprobamos que es un dataframe.
+
+```{r}
+ejercicio <- datos [,-c(3, 5)]
+View(ejercicio)
+
+is.data.frame(ejercicio)
+
+```
+### Ponemos nombres a las columnas
+```{r}
+names(ejercicio) <- c("Año", "Area", "Street")
+```   
+
+### Valores faltantes o NA?s
+Primero calcularemos cuantas columnas tienen NAs  
+```{r}
+colNejercicio <- ejercicio[colSums(is.na(ejercicio)) > 0]
+names(colNejercicio)
+```
+La Columna Area es la que presenta valores vacíos.
+
+A continuación, miramos cuantas filas tienen NAs:   
+```{r}
+filasNA <- ejercicio [rowSums(is.na(ejercicio)) > 0, ]
+dim(filasNA)[1]
+```
+### En la columna de Área vemos que hay muchas filas en blanco.
+En el excel no las han rellenado suponiendo que habría que rellenar hacia abajo, por lo que vamos a arreglarlas:
+
+```{r}
+ejercicio2 <- fill(ejercicio, Area)
+View(ejercicio2)
+```
+### Vamos a probar a aplicar funciones all() o any().
+En la columna Año comprobamos que todos los datos tiene un formato de año:
+```{r}
+any(ejercicio2$"Año" == 2011)
+all(ejercicio2$"Año" == 2011)
+any(ejercicio2$"Año" == 2012)
+all(ejercicio2$"Año" == 2012)
+```
+Tambien vamos a aplicar un summary para ver el estado del dataframe.
+
+```{r}
+summary(ejercicio2)
+```
+
+### Ahora vamos a aplicar las funciones lapply y class para determinar las clases de todas las columnas
+```{r}
+lapply(ejercicio2, class)
+```
+### Muestreo
+En ocasiones podemos querer generar una muestra aleatoria a partir de la funcion sample.  
+
+```{r}
+arrange(ejercicio2, Año) #ordenamos por año
+sample(ejercicio2,size=3,replace=TRUE)
+```
+### Funciones
+Subsetting con filter()
+Del dataframe vamos a seleccionar las filas que corresponden a Birmingham. 
+  
+```{r}
+ejercicio2 %>%
+filter("Area"== "Birmingham") %>%
+select(1:2) %>% head()
+```
+### Limpiezas en detalle y unificación de los datos. 
+Este proceso puede ser más lento, vamos poco a poco.
+
+```{r}
+select(ejercicio2, Street)
+
+# Poner todos los caracteres en minúscula.
+ejercicio2$Street <- tolower (ejercicio2$Street)
+    
+# Eliminar espacios en blanco al inicio y final de cada campo
+ejercicio2$Street <- gsub("(^ +)|( +$)", "", ejercicio2$Street)
+
+# Eliminar "." del final
+ejercicio2$Street <- gsub("([.]+$)", "", ejercicio2$Street)
+
+# Eliminar "," del contenido 
+ejercicio2$Street <- gsub(",","",ejercicio2$Street)
+
+# Por último, vamos a eliminar posibles filas repetidas
+library(dplyr)
+ejercicio2 <- ejercicio2 %>% distinct
+nrow(ejercicio2)
+
+# Corregir mayúsculas en bloque
+# Ahora ya podemos corregir las mayúsculas iniciales de un modo rápido:
+
+gsub("(\\w)(\\w*)", "\\U\\1\\L\\2", ejercicio2$Street, perl=TRUE)
+gsub("\\b(\\w)",    "\\U\\1",       ejercicio2$Street, perl=TRUE)
+View(ejercicio2)
+```
+### Por último, vamos revisando los datos para hacer correcciones más puntuales:
+```{r}
+grep("raod", ejercicio2$Street, ignore.case = TRUE, value = T) %>% unique()  #hacemos búsqueda por palabras que apreciamos que están mal escritas para ver cuantas hay
+```
+
+#corregir algunas erratas que podamos detectar directamente, por ejemplo:
+```{r}
+ejercicio2$Street[1] = "Alcester Road Mosley" 
+ejercicio2$Street[4] = "Marrowfat Road Handsworth" 
+```
+```{r}
+#buscamos st con espacios:
+grep(" st ", ejercicio2$Street, ignore.case = TRUE, value = T) %>% unique() 
+
+```
+
+# 4. Guardar ficheros y datos
+
+### Guardamos un documento para el código y los textos. En markdown y R con extensión .Rmd
+Guardamos también un excel limpio.
+
+```{r}
+sink("Ejercicio2.txt") 
+save.image(file = "Ejercicio2.RData")  #guardamos en formato R.
+write.csv(ejercicio2, file="Ejercicio2.csv") #guardamos en un archivo CSV.
+```
+###Procesar del documento resultante: elaboración de un documento .html.
+Guardamos la salida de los datos:
+```{r}
+summary(ejercicio2)
+Ejercicio = summary(ejercicio2)
+capture.output(ejercicio2, file="Ejercicio2.html")
+```
+# 5. Conclusiones  
+
+Hemos realizado una preparación y limpieza de los datos.
+Para este ejercicio se ha podido organizar gran parte, pero aún quedaría pendiente continuar limpiando y unificando el texto de la columna Street con una revisión exacta de gramática y ortografía conociendo las calles. 
+Hemos obtenido 3454 registros limpios.
+
+
+```{r}
+print(sessionInfo(), locale = FALSE)
+
+```
